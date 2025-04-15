@@ -1,7 +1,7 @@
 import dotenv
 import os
 import asyncio
-from src.dashscope_realtime import DashScopeASRClient
+from src.dashscope_realtime import DashScopeRealtimeASR
 
 dotenv.load_dotenv()
 
@@ -10,7 +10,7 @@ AUDIO_FILE = "asr_example.wav"  # 替换成你的音频路径，要求16000Hz wa
 
 
 async def main():
-    asr = DashScopeASRClient(api_key=API_KEY)
+    asr = DashScopeRealtimeASR(api_key=API_KEY)
 
     asr.on_partial = lambda text: print(f"[Partial] {text}")
     asr.on_final = lambda text: print(f"[Final] {text}")

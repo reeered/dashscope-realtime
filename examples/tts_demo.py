@@ -2,7 +2,7 @@ import pyaudio
 import os
 import asyncio
 import dotenv
-from src.dashscope_realtime import DashScopeTTSClient
+from src.dashscope_realtime import DashScopeRealtimeTTS
 
 dotenv.load_dotenv()
 
@@ -29,7 +29,7 @@ class AudioPlayer:
 async def main():
     player = AudioPlayer()
 
-    client = DashScopeTTSClient(api_key=API_KEY)
+    client = DashScopeRealtimeTTS(api_key=API_KEY)
     client.on_audio_chunk = lambda chunk: player.play_chunk(chunk)
     client.on_end = lambda: print("✅ 播报完成")
     client.on_error = lambda err: print(f"❌ 错误: {err}")

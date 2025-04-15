@@ -1,14 +1,14 @@
 import asyncio
-from .asr import DashScopeASRClient
-from .tts import DashScopeTTSClient
+from .asr import DashScopeRealtimeASR
+from .tts import DashScopeRealtimeTTS
 from .event import EventEmitter
 
 
 class RealtimeClient:
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self.asr = DashScopeASRClient(api_key=api_key)
-        self.tts = DashScopeTTSClient(api_key=api_key)
+        self.asr = DashScopeRealtimeASR(api_key=api_key)
+        self.tts = DashScopeRealtimeTTS(api_key=api_key)
         self.events = EventEmitter()
         self._start_lock = asyncio.Lock()
 
