@@ -4,8 +4,8 @@
 
 <p align="center">
     <img src="https://img.shields.io/pypi/v/dashscope-realtime?color=%2300b3a4&logo=pypi" />
-    <img src="https://img.shields.io/pypi/pyversions/dashscope-realtime?logo=python" />
-    <img src="https://img.shields.io/github/license/mikuh/dashscope-realtime?color=blue" />
+    <img src="https://img.shields.io/pypi/pyversions/dashscope-realtime.svg?logo=python" />
+    <img src="https://img.shields.io/github/license/mikuh/dashscope-realtime.svg?color=blue" />
 </p>
 
 ---
@@ -66,7 +66,7 @@ from dashscope_realtime import DashScopeRealtimeTTS
 
 async with DashScopeRealtimeTTS(api_key="your-api-key") as tts:
     await tts.send_text("Hello, DashScope!")  # 发送文本
-    await tts.finish()                        # 完成任务
+    await tts.finish()  # 完成任务
 ```
 
 ---
