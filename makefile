@@ -32,3 +32,5 @@ check:
 
 # 一键发布（可选）
 release: clean upload
+
+rebuild: clean build
