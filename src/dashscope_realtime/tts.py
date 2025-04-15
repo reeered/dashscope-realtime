@@ -4,7 +4,6 @@ import uuid
 from typing import Optional, Callable, Awaitable, Union
 
 from websockets.asyncio.client import connect
-from websockets.asyncio.client import ClientProtocol
 
 from .config import DASHSCOPE_WS_URL, TTSConfig, logger
 
@@ -21,7 +20,7 @@ class DashScopeRealtimeTTS:
         self.url = url
 
         self.task_id = uuid.uuid4().hex
-        self.ws: Optional[ClientProtocol] = None
+        self.ws = None
         self._on_audio_chunk: Optional[Callable[[bytes], Awaitable[None]]] = None
         self._task_started = asyncio.Event()
         self._receive_task: Optional[asyncio.Task] = None

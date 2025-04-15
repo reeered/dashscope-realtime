@@ -4,7 +4,6 @@ import uuid
 from typing import Optional, Callable, Awaitable
 
 from websockets.asyncio.client import connect
-from websockets.asyncio.client import ClientProtocol
 from .config import DASHSCOPE_WS_URL, ASRConfig, logger
 
 
@@ -20,7 +19,7 @@ class DashScopeRealtimeASR:
         self.url = url
 
         self.task_id = uuid.uuid4().hex
-        self.ws: Optional[ClientProtocol] = None
+        self.ws = None
         self.result_callback: Optional[Callable[[str], Awaitable[None]]] = None
         self.on_speech_end: Optional[Callable[[str], Awaitable[None]]] = None
         self._receive_task: Optional[asyncio.Task] = None
