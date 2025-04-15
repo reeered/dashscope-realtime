@@ -54,7 +54,7 @@ pip install dashscope-realtime
 from dashscope_realtime import DashScopeRealtimeASR
 
 async with DashScopeRealtimeASR(api_key="your-api-key") as asr:
-    await asr.send_audio_chunk(b"...")  # 发送音频片段
+    await asr.send_audio(b"...")  # 发送音频片段
 ```
 
 ---
@@ -65,7 +65,7 @@ async with DashScopeRealtimeASR(api_key="your-api-key") as asr:
 from dashscope_realtime import DashScopeRealtimeTTS
 
 async with DashScopeRealtimeTTS(api_key="your-api-key") as tts:
-    await tts.send_text("Hello, DashScope!")  # 发送文本
+    await tts.say("Hello, DashScope!")  # 发送文本
     await tts.finish()  # 完成任务
 ```
 
