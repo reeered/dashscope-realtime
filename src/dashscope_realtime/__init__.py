@@ -1,2 +1,3 @@
-from .asr import DashScopeRealtimeASR
-from .tts import DashScopeRealtimeTTS
+from .asr import DashScopeASRClient
+from .tts import DashScopeTTSClient
+from .client import RealtimeClient

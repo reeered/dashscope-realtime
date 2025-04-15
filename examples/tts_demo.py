@@ -2,13 +2,15 @@ import pyaudio
 import os
 import asyncio
 import dotenv
-from src.dashscope_realtime.tts import DashScopeRealtimeTTS
+from src.dashscope_realtime import DashScopeTTSClient
 
 dotenv.load_dotenv()
 
+API_KEY = os.getenv("DASHSCOPE_API_KEY")  # 请替换为你自己的 API Key
+
 
 class AudioPlayer:
-    def __init__(self, sample_rate=16000):
+    def __init__(self, sample_rate=22050):
         self.p = pyaudio.PyAudio()
         self.stream = self.p.open(format=pyaudio.paInt16,
                                   channels=1,
@@ -25,26 +27,23 @@ class AudioPlayer:
 
 
 async def main():
-    texts = [
-        "床前明月光，",
-        "疑是地上霜。",
-        "举头望明月，",
-        "低头思故乡。"
-    ]
-
-    async def handle_audio_chunk(chunk):
-        print("chunk received", len(chunk))
-        player.play_chunk(chunk)
-
     player = AudioPlayer()
 
-    async with DashScopeRealtimeTTS(api_key=os.getenv("DASHSCOPE_API_KEY")) as tts:
-        await tts.connect(on_audio_chunk=handle_audio_chunk)
-        for text in texts:
-            await tts.send_text(text)
-            await asyncio.sleep(0.1)
-        await tts.finish()
+    client = DashScopeTTSClient(api_key=API_KEY)
+    client.on_audio_chunk = lambda chunk: player.play_chunk(chunk)
+    client.on_end = lambda: print("✅ 播报完成")
+    client.on_error = lambda err: print(f"❌ 错误: {err}")
 
+    await client.connect()
+
+    await client.say(" 你好，我是你")
+    await client.say("的语音助手。")
+    await client.say("欢迎体验实")
+    await client.say("时语音合成服务。")
+    await client.finish()
+
+    await asyncio.sleep(1)
+    await client.disconnect()
     player.close()
 
 

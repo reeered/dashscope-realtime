@@ -1,117 +1,114 @@
+# 文件结构：src/dashscope_realtime/asr.py
+
 import asyncio
+import websockets
 import json
 import uuid
-from typing import Optional, Callable, Awaitable
-
-from websockets.asyncio.client import connect
-from .config import DASHSCOPE_WS_URL, ASRConfig, logger
+from dataclasses import dataclass, field
+from typing import Optional, List
 
 
-class DashScopeRealtimeASR:
-    def __init__(
-        self,
-        api_key: str,
-        config: ASRConfig = ASRConfig(),
-        url: str = DASHSCOPE_WS_URL,
-    ):
+@dataclass
+class DashScopeASRConfig:
+    model: str = "paraformer-realtime-v2"
+    sample_rate: int = 16000
+    format: str = "wav"
+    vocabulary_id: Optional[str] = None
+    phrase_id: Optional[str] = None
+    disfluency_removal_enabled: bool = False
+    language_hints: List[str] = field(default_factory=lambda: ["zh", "en"])
+    semantic_punctuation_enabled: bool = False
+    max_sentence_silence: int = 800
+    punctuation_prediction_enabled: bool = True
+    heartbeat: bool = False
+    inverse_text_normalization_enabled: bool = True
+
+
+class DashScopeASRClient:
+    def __init__(self, api_key: str, config: DashScopeASRConfig = DashScopeASRConfig()):
         self.api_key = api_key
         self.config = config
-        self.url = url
-
-        self.task_id = uuid.uuid4().hex
         self.ws = None
-        self.result_callback: Optional[Callable[[str], Awaitable[None]]] = None
-        self.on_speech_end: Optional[Callable[[str], Awaitable[None]]] = None
-        self._receive_task: Optional[asyncio.Task] = None
-
-    async def __aenter__(self):
-        await self.connect()
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        await self.finish()
+        self.task_id = uuid.uuid4().hex[:32]
+        self.on_partial = None
+        self.on_final = None
+        self.on_error = None
+        self.on_sentence_end = None
 
     async def connect(self):
-        self.ws = await connect(
-            self.url,
-            additional_headers={
-                "Authorization": f"bearer {self.api_key}",
-                "X-DashScope-DataInspection": "enable",
-            },
+        self.ws = await websockets.connect(
+            "wss://dashscope.aliyuncs.com/api-ws/v1/inference/",
+            additional_headers={"Authorization": f"bearer {self.api_key}"}
         )
         await self._send_run_task()
-        self._receive_task = asyncio.create_task(self._receive())
+        asyncio.create_task(self._recv())
 
-    async def _send_run_task(self):
-        message = {
-            "header": {
-                "action": "run-task",
-                "task_id": self.task_id,
-                "streaming": "duplex",
-            },
-            "payload": {
-                "task_group": "audio",
-                "task": "asr",
-                "function": "recognition",
-                "model": self.config.model,
-                "parameters": {
-                    "sample_rate": self.config.sample_rate,
-                    "format": self.config.audio_format,
-                    "semantic_punctuation_enabled": True,
-                },
-                "input": {},
-            },
-        }
-        await self.ws.send(json.dumps(message))
+    async def disconnect(self):
+        if self.ws:
+            await self.ws.close()
 
-    async def send_audio_chunk(self, data: bytes):
+    async def send_audio(self, data: bytes):
         if not self.ws:
-            raise RuntimeError("WebSocket not connected")
+            print("ASR ws closed, reconnecting...")
+            await self.disconnect()
+            await self.connect()
+            await self._send_run_task()
         await self.ws.send(data)
 
     async def finish(self):
-        if not self.ws:
-            return
-        message = {
-            "header": {
-                "action": "finish-task",
-                "task_id": self.task_id,
-                "streaming": "duplex",
-            },
-            "payload": {
-                "input": {},
-            },
+        if self.ws:
+            await self.ws.send(json.dumps({
+                "header": {
+                    "action": "finish-task",
+                    "task_id": self.task_id,
+                    "streaming": "duplex"
+                },
+                "payload": {
+                    "input": {}
+                }
+            }))
+
+    async def _send_run_task(self):
+        parameters = {
+            "sample_rate": self.config.sample_rate,
+            "format": self.config.format,
+            "disfluency_removal_enabled": self.config.disfluency_removal_enabled,
+            "language_hints": self.config.language_hints,
+            "semantic_punctuation_enabled": self.config.semantic_punctuation_enabled,
+            "max_sentence_silence": self.config.max_sentence_silence,
+            "punctuation_prediction_enabled": self.config.punctuation_prediction_enabled,
+            "heartbeat": self.config.heartbeat,
+            "inverse_text_normalization_enabled": self.config.inverse_text_normalization_enabled
         }
-        await self.ws.send(json.dumps(message))
-        await self._receive_task
-        await self.ws.close()
+        if self.config.vocabulary_id:
+            parameters["vocabulary_id"] = self.config.vocabulary_id
+        if self.config.phrase_id:
+            parameters["phrase_id"] = self.config.phrase_id
 
-    async def _receive(self):
-        async for message in self.ws:
-            data = json.loads(message)
-            event = data.get("header", {}).get("event")
+        await self.ws.send(json.dumps({
+            "header": {"action": "run-task", "task_id": self.task_id, "streaming": "duplex"},
+            "payload": {"task_group": "audio", "task": "asr", "function": "recognition", "model": self.config.model,
+                        "parameters": parameters, "input": {}}
+        }))
 
-            if event == "task-started":
-                logger.info("ASR task started")
-
-            elif event == "result-generated":
-                sentence = data["payload"]["output"]["sentence"]
-                text = sentence["text"]
-                is_final = sentence.get("sentence_end", False)
-
-                logger.info("ASR Result: %s (final=%s)", text, is_final)
-
-                if self.result_callback:
-                    await self.result_callback(text)
-
-                if is_final and self.on_speech_end:
-                    await self.on_speech_end(text)
-
-            elif event == "task-finished":
-                logger.info("ASR task finished")
-                break
-
-            elif event == "task-failed":
-                error_msg = data["header"].get("error_message", "Unknown Error")
-                logger.error("ASR task failed: %s", error_msg)
-                break
+    async def _recv(self):
+        try:
+            async for msg in self.ws:
+                data = json.loads(msg)
+                event = data["header"].get("event")
+                if event == "result-generated":
+                    text = data["payload"]["output"]["sentence"]["text"]
+                    sentence_end = data["payload"]["output"]["sentence"]["sentence_end"]
+                    if self.on_partial:
+                        self.on_partial(text)
+                    if self.on_sentence_end and sentence_end:
+                        self.on_sentence_end(text)
+                elif event == "task-finished":
+                    if self.on_final:
+                        self.on_final("done")
+                elif event == "task-failed":
+                    if self.on_error:
+                        self.on_error(data)
+        except Exception as e:
+            if self.on_error:
+                self.on_error(e)

@@ -1,36 +1,31 @@
-import os
-
-import aiofiles
-import asyncio
-from datetime import datetime
-from src.dashscope_realtime.asr import DashScopeRealtimeASR
 import dotenv
+import os
+import asyncio
+from src.dashscope_realtime import DashScopeASRClient
 
 dotenv.load_dotenv()
 
+API_KEY = os.getenv("DASHSCOPE_API_KEY")  # 替换成你的api key
+AUDIO_FILE = "asr_example.wav"  # 替换成你的音频路径，要求16000Hz wav格式
+
 
 async def main():
-    async def on_result(text: str):
-        print(f"[{datetime.now().strftime('%H:%M:%S.%f')}] Partial:", text)
+    asr = DashScopeASRClient(api_key=API_KEY)
 
-    async def on_end(text: str):
-        print(f"[{datetime.now().strftime('%H:%M:%S.%f')}] Final:", text)
+    asr.on_partial = lambda text: print(f"[Partial] {text}")
+    asr.on_final = lambda text: print(f"[Final] {text}")
+    asr.on_error = lambda err: print(f"[Error] {err}")
 
-    async with DashScopeRealtimeASR(api_key=os.getenv("DASHSCOPE_API_KEY")) as asr:
-        asr.result_callback = on_result
-        asr.on_speech_end = on_end
-        n = 0
-        async with aiofiles.open("asr_example.wav", 'rb') as f:
-            while chunk := await f.read(8000):
-                n += 1
-                await asr.send_audio_chunk(chunk)
-                await asyncio.sleep(0.1)
-                if n > 4:
-                    silence_chunk = b'\x00' * 8000
-                    await asr.send_audio_chunk(silence_chunk)
-                    await asyncio.sleep(3)
-                    break
+    await asr.connect()
+
+    with open(AUDIO_FILE, 'rb') as f:
+        while chunk := f.read(3200):  # 按官方建议大小发送
+            await asr.send_audio(chunk)
+            await asyncio.sleep(0.1)  # 节奏感流式模拟
+
+    await asyncio.sleep(1)  # 等待结束响应
+    await asr.disconnect()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())
