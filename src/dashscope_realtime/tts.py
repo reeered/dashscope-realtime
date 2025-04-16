@@ -38,6 +38,9 @@ class DashScopeRealtimeTTS:
         self.on_audio_chunk = on_audio_chunk
         self.on_end = on_end
         self.on_error = on_error
+        self.done_event: Optional[asyncio.Event] = None
+
+        self._say_lock = asyncio.Lock()
 
     async def __aenter__(self):
         await self.connect()
@@ -53,6 +56,7 @@ class DashScopeRealtimeTTS:
             self.url,
             additional_headers={"Authorization": f"Bearer {self.api_key}"}
         )
+        self.done_event = asyncio.Event()
         await self._send_run_task()
         asyncio.create_task(self._receive_loop())
 
@@ -62,18 +66,19 @@ class DashScopeRealtimeTTS:
             self.ws = None
 
     async def say(self, text: str):
-        if not self.ws:
-            await self.connect()
-        await self.ws.send(json.dumps({
-            "header": {
-                "action": "continue-task",
-                "task_id": self.task_id,
-                "streaming": "duplex"
-            },
-            "payload": {
-                "input": {"text": text}
-            }
-        }))
+        async with self._say_lock:
+            if not self.ws:
+                await self.connect()
+            await self.ws.send(json.dumps({
+                "header": {
+                    "action": "continue-task",
+                    "task_id": self.task_id,
+                    "streaming": "duplex"
+                },
+                "payload": {
+                    "input": {"text": text}
+                }
+            }))
 
     async def finish(self):
         if self.ws:
@@ -122,7 +127,9 @@ class DashScopeRealtimeTTS:
             async for msg in self.ws:
                 if isinstance(msg, bytes):
                     if self.on_audio_chunk:
-                        self.on_audio_chunk(msg)
+                        result = self.on_audio_chunk(msg)
+                        if asyncio.iscoroutine(result):
+                            await result
                 else:
                     data = json.loads(msg)
                     event = data.get("header", {}).get("event")
@@ -130,6 +137,8 @@ class DashScopeRealtimeTTS:
                     if event == "task-finished":
                         if self.on_end:
                             self.on_end()
+                        if self.done_event and not self.done_event.is_set():
+                            self.done_event.set()
 
                     elif event == "task-failed":
                         if self.on_error:
