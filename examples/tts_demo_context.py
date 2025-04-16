@@ -7,6 +7,7 @@ dotenv.load_dotenv()
 
 API_KEY = os.getenv("DASHSCOPE_API_KEY")  # 请替换为你自己的 API Key
 
+
 async def main():
     async with DashScopeRealtimeTTS(api_key=API_KEY) as tts:
         tts.on_audio_chunk = lambda chunk: print(f"Got audio chunk: {len(chunk)} bytes")

@@ -8,7 +8,7 @@ import websockets
 
 
 @dataclass(frozen=True)
-class DashScopeASRConfig:
+class ASRConfig:
     model: str = "paraformer-realtime-v2"
     sample_rate: int = 16000
     format: str = "wav"
@@ -27,7 +27,7 @@ class DashScopeRealtimeASR:
     def __init__(
         self,
         api_key: str,
-        config: DashScopeASRConfig = DashScopeASRConfig(),
+        config: ASRConfig = ASRConfig(),
         url: str = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/",
         on_partial: Optional[Callable[[str], None]] = None,
         on_final: Optional[Callable[[str], None]] = None,

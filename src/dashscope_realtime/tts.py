@@ -110,7 +110,15 @@ class DashScopeRealtimeTTS:
             try:
                 await self._play_task
             except asyncio.CancelledError:
-                pass
+                print("🔁 播放任务被取消")
+        # 重置队列，清掉残余音频
+        if self._audio_queue:
+            self._audio_queue = asyncio.Queue()
+
+        # 重置 done 状态
+        if self.done_event:
+            self.done_event.clear()
+        print("⛔️ 播报被中断，队列已清空")
         await self.disconnect()
         await self.connect()
 

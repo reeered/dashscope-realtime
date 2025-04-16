@@ -4,9 +4,12 @@ import pyaudio
 import queue
 import dotenv
 import os
+
 dotenv.load_dotenv()
 
 API_KEY = os.getenv("DASHSCOPE_API_KEY")  # 替换成你的api key
+
+
 class AudioInputStream:
     def __init__(self, rate=22050, chunk=3200):
         self.chunk = chunk

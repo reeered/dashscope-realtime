@@ -41,7 +41,7 @@ async def main():
     await client.say("欢迎体验实")
     await client.say("时语音合成服务。")
 
-    # await asyncio.sleep(1)  # 模拟播放了几秒钟
+    await asyncio.sleep(1)  # 模拟播放了几秒钟
 
     print("🛑 中断播放...")
     await client.interrupt()

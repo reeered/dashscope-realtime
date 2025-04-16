@@ -1,7 +1,7 @@
 import asyncio
 import pyaudio
 import os
-from src.dashscope_realtime import DashScopeASRClient
+from src.dashscope_realtime import DashScopeRealtimeASR
 import dotenv
 dotenv.load_dotenv()
 
@@ -39,7 +39,7 @@ class MicInput:
 
 async def main():
     mic = MicInput(rate=RATE, chunk=CHUNK)
-    asr = DashScopeASRClient(api_key=API_KEY)
+    asr = DashScopeRealtimeASR(api_key=API_KEY)
 
     asr.on_partial = lambda text: print(f"[Partial] {text}")
     asr.on_final = lambda text: print(f"[Final] {text}")
