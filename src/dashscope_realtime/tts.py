@@ -42,6 +42,7 @@ class DashScopeRealtimeTTS:
         self._say_lock = asyncio.Lock()
         self._audio_queue: Optional[asyncio.Queue[Optional[bytes]]] = None
         self._play_task: Optional[asyncio.Task] = None
+        self._interrupted = False
 
     async def __aenter__(self):
         await self.connect()
@@ -68,6 +69,7 @@ class DashScopeRealtimeTTS:
             self.ws = None
 
     async def say(self, text: str):
+        self._interrupted = False
         async with self._say_lock:
             if not self.ws:
                 await self.connect()
@@ -105,6 +107,7 @@ class DashScopeRealtimeTTS:
             await self._play_task
 
     async def interrupt(self):
+        self._interrupted = True
         if self._play_task and not self._play_task.done():
             self._play_task.cancel()
             try:
@@ -152,24 +155,29 @@ class DashScopeRealtimeTTS:
     async def _receive_loop(self):
         try:
             async for msg in self.ws:
-                if isinstance(msg, bytes):
+                if isinstance(msg, bytes) and not self._interrupted:
                     if self._audio_queue:
                         await self._audio_queue.put(msg)
+                elif isinstance(msg, str):
+                    try:
+                        data = json.loads(msg)
+                        event = data.get("header", {}).get("event")
+
+                        if event == "task-finished":
+                            if self._audio_queue:
+                                await self._audio_queue.put(None)  # 播放结束标志
+                            if self.on_end:
+                                self.on_end()
+                            if self.done_event and not self.done_event.is_set():
+                                self.done_event.set()
+
+                        elif event == "task-failed":
+                            if self.on_error:
+                                self.on_error(RuntimeError(data.get("payload", {}).get("message", "Unknown error")))
+                    except json.JSONDecodeError as e:
+                        print(f"⚠️ JSON 解码失败: {e}")
                 else:
-                    data = json.loads(msg)
-                    event = data.get("header", {}).get("event")
-
-                    if event == "task-finished":
-                        if self._audio_queue:
-                            await self._audio_queue.put(None)  # 播放结束标志
-                        if self.on_end:
-                            self.on_end()
-                        if self.done_event and not self.done_event.is_set():
-                            self.done_event.set()
-
-                    elif event == "task-failed":
-                        if self.on_error:
-                            self.on_error(RuntimeError(data.get("payload", {}).get("message", "Unknown error")))
+                    print(f"⚠️ 收到未知类型的 WebSocket 消息: {type(msg)}")
 
         except Exception as e:
             if self.on_error:
@@ -179,7 +187,7 @@ class DashScopeRealtimeTTS:
         try:
             while True:
                 chunk = await self._audio_queue.get()
-                if chunk is None:
+                if chunk is None or self._interrupted:
                     break
                 if self.send_audio:
                     result = self.send_audio(chunk)
