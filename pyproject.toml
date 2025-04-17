@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dashscope-realtime"
-version = "0.1.6"
+version = "0.1.7"
 description = "DashScope Realtime ASR & TTS SDK"
 authors = [{ name="geb", email="853934146@qq.com" }]
 license = {file = "LICENSE"}

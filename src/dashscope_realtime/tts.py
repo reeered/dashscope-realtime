@@ -108,12 +108,23 @@ class DashScopeRealtimeTTS:
 
     async def interrupt(self):
         self._interrupted = True
+
+        # Cancel audio playback
         if self._play_task and not self._play_task.done():
             self._play_task.cancel()
             try:
                 await self._play_task
             except asyncio.CancelledError:
                 print("🔁 播放任务被取消")
+
+        # Cancel receive task
+        if hasattr(self, "_receive_task") and self._receive_task and not self._receive_task.done():
+            self._receive_task.cancel()
+            try:
+                await self._receive_task
+            except asyncio.CancelledError:
+                print("⛔️ 接收任务被取消")
+
         # 重置队列，清掉残余音频
         if self._audio_queue:
             self._audio_queue = asyncio.Queue()
@@ -121,6 +132,7 @@ class DashScopeRealtimeTTS:
         # 重置 done 状态
         if self.done_event:
             self.done_event.clear()
+
         print("⛔️ 播报被中断，队列已清空")
         await self.disconnect()
         await self.connect()
