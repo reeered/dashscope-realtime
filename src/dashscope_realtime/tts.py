@@ -133,9 +133,14 @@ class DashScopeRealtimeTTS:
         if self.done_event:
             self.done_event.clear()
 
-        print("⛔️ 播报被中断，队列已清空")
+        # 重新生成 task_id，确保服务端认为你是新任务
+        self.task_id = uuid.uuid4().hex[:32]
+
+        # 重建连接（服务端这次不会继续推老任务）
         await self.disconnect()
         await self.connect()
+
+        print("⛔️ 播报被中断，队列已清空")
 
     async def _send_run_task(self):
         params = {
