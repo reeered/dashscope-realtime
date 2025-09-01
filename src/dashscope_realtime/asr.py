@@ -131,7 +131,7 @@ class DashScopeRealtimeASR:
                     text = sentence.get("text", "")
                     if self.on_partial:
                         self.on_partial(text)
-                    if self.on_sentence_end and sentence.get("sentence_end"):
+                    if self.on_sentence_end and sentence.get("end_time"):
                         self.on_sentence_end(text)
 
                 elif event == "task-finished":
